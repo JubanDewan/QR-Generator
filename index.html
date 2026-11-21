@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Generator</title>
+    <link rel="stylesheet" href="style.css">
+
+    <!-- PWA Settings -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#121f33">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="QR Generator">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+</head>
+<body>
+    <div class="container">
+        <button id="installBtn" class="install-btn">📲 Pasang Aplikasi (Install)</button>
+        <p>Masukkan teks atau URL</p>
+        <input type="text" placeholder="Teks atau URL..." id="qrText" autocomplete="off">
+        <div id="imgBox">
+            <img src="" id="qrImage" alt="QR Code">
+        </div>
+
+        <button onclick="generateQR()">Generate QR Code</button>
+        <button id="downloadBtn" onclick="downloadQR()">Download QR Code</button>
+    </div>
+
+<script>
+
+let imgBox = document.getElementById("imgBox");
+let qrImage = document.getElementById("qrImage");
+let qrText = document.getElementById("qrText");
+let downloadBtn = document.getElementById("downloadBtn");
+let installBtn = document.getElementById("installBtn");
+let deferredPrompt = null;
+
+function generateQR(){
+    let text = qrText.value.trim();
+    if(text.length > 0){
+        qrImage.src = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=" + encodeURIComponent(text);
+        imgBox.classList.add("show-img");
+        downloadBtn.classList.add("show-btn");
+    }else{
+        qrText.classList.add('error');
+        setTimeout(()=>{
+            qrText.classList.remove('error');
+        }, 500);
+    }
+}
+
+async function downloadQR(){
+    if(!qrImage.src) return;
+    try {
+        downloadBtn.innerText = "Downloading...";
+        const response = await fetch(qrImage.src);
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = "qr-code.png";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+        const a = document.createElement("a");
+        a.href = qrImage.src;
+        a.target = "_blank";
+        a.download = "qr-code.png";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    } finally {
+        downloadBtn.innerText = "Download QR Code";
+    }
+}
+
+qrText.addEventListener("keydown", function(event){
+    if(event.key === "Enter"){
+        generateQR();
+    }
+});
+
+// PWA: Service Worker Registration
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('Service Worker terdaftar:', reg.scope))
+            .catch(err => console.error('Pendaftaran Service Worker gagal:', err));
+    });
+}
+
+// PWA: Install Prompt handling
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (installBtn) {
+        installBtn.style.display = 'block';
+    }
+});
+
+if (installBtn) {
+    installBtn.addEventListener('click', async () => {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') {
+                installBtn.style.display = 'none';
+            }
+            deferredPrompt = null;
+        }
+    });
+}
+
+window.addEventListener('appinstalled', () => {
+    if (installBtn) {
+        installBtn.style.display = 'none';
+    }
+    deferredPrompt = null;
+});
+
+</script>
+
+</body>
+</html>
